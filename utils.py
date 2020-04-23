@@ -1,9 +1,9 @@
-
 import numpy as np
 from PIL import Image
 from math import sqrt
 from numba import njit
 from pathlib import Path
+from operator import eq
 
 
 def get_image_data(filename: Path) -> np.array:
@@ -82,10 +82,7 @@ def get_neighbors(train, test_row, neighbors):
     """
     Locate the most similar neighbors
     """
-    distances = [
-        (train_row, distance(test_row, train_row)) 
-        for train_row in train
-    ]
+    distances = [(train_row, distance(test_row, train_row)) for train_row in train]
     distances.sort(key=lambda tup: tup[1])
 
     neighbors = [distances[i][0] for i in range(neighbors)]
@@ -93,8 +90,11 @@ def get_neighbors(train, test_row, neighbors):
     return neighbors
 
 
-# Make a classification prediction with neighbors
-def predict_classification(train, test_row, count):
+@njit
+def predict(train, test_row, count):
+    """ 
+    Make a classification prediction with neighbors
+    """
     neighbors = get_neighbors(train, test_row, count)
 
     output_values = [row[-1] for row in neighbors]
@@ -104,13 +104,14 @@ def predict_classification(train, test_row, count):
     return prediction
 
 
-# Calculate accuracy percentage
 def accuracy_metric(actual, predicted):
-	correct = 0
-	for i in range(len(actual)):
-		if actual[i] == predicted[i]:
-			correct += 1
-	return correct / float(len(actual)) * 100.0
+    """
+    Calculate accuracy percentage
+    """
+    correct = map(eq, actual, predicted)
+
+    return (sum(correct) / len(correct)) * 100.0
+
 
 # @njit
 def middle_of(hist: np.array, min_count: int = 5) -> int:

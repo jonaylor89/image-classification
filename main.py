@@ -11,7 +11,13 @@ from multiprocessing import Pool
 from typing import Any, List, Dict
 from click import clear, echo, style, secho
 
-from utils import get_image_data, export_image, select_channel, predict_classification
+from utils import (
+    get_image_data,
+    export_image,
+    select_channel,
+    predict,
+    accuracy_metric,
+)
 
 conf: Dict[str, Any] = {}
 
@@ -21,40 +27,44 @@ def cross_validation_split(dataset, n_folds):
     dataset_split = []
     dataset_copy = list(dataset)
     fold_size = len(dataset) // n_folds
+
     for _ in range(n_folds):
         fold = []
+
         while len(fold) < fold_size:
             index = randrange(len(dataset_copy))
             fold.append(dataset_copy.pop(index))
+
         dataset_split.append(fold)
+
     return dataset_split
 
 
-def k_nearest_neighbors(train, test, num_neighbors):
-    predictions = []
-    for row in test:
-        output = predict_classification(train, row, num_neighbors)
-        predictions.append(output)
-    return predictions
+def k_nearest_neighbors(train, test, count) -> np.array:
+    return np.array([predict(train, row, count) for row in test])
 
 
 # Evaluate an algorithm using a cross validation split
 def evaluate_algorithm(dataset, algorithm, n_folds, *args):
     folds = cross_validation_split(dataset, n_folds)
     scores = []
+
     for fold in folds:
         train_set = list(folds)
         train_set.remove(fold)
         train_set = sum(train_set, [])
         test_set = []
+
         for row in fold:
             row_copy = list(row)
             test_set.append(row_copy)
             row_copy[-1] = None
+
         predicted = algorithm(train_set, test_set, *args)
         actual = [row[-1] for row in fold]
         accuracy = accuracy_metric(actual, predicted)
         scores.append(accuracy)
+
     return scores
 
 

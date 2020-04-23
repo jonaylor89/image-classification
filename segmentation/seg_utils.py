@@ -144,47 +144,6 @@ def convolve(img_array: np.array, img_filter: np.array) -> np.array:
     return output
 
 
-# @njit
-def find_middle_hist(hist: np.array, min_count: int = 5) -> int:
-
-    num_bins = len(hist)
-    hist_start = 0
-    while hist[hist_start] < min_count:
-        hist_start += 1  # ignore small counts at start
-
-    hist_end = num_bins - 1
-    while hist[hist_end] < min_count:
-        hist_end -= 1  # ignore small counts at end
-
-    hist_center = int(
-        round(np.average(np.linspace(0, 2 ** 8 - 1, num_bins), weights=hist))
-    )
-    left = np.sum(hist[hist_start:hist_center])
-    right = np.sum(hist[hist_center : hist_end + 1])
-
-    while hist_start < hist_end:
-        if left > right:  # left part became heavier
-            left -= hist[hist_start]
-            hist_start += 1
-        else:  # right part became heavier
-            right -= hist[hist_end]
-            hist_end -= 1
-        new_center = int(
-            round((hist_end + hist_start) / 2)
-        )  # re-center the weighing scale
-
-        if new_center < hist_center:  # move bin to the other side
-            left -= hist[hist_center]
-            right += hist[hist_center]
-        elif new_center > hist_center:
-            left += hist[hist_center]
-            right -= hist[hist_center]
-
-        hist_center = new_center
-
-    return hist_center
-
-
 # @njit(parallel=True, cache=True)
 def k_means(arr: np.array, k: int, num_iter: int = 5) -> np.array:
 
