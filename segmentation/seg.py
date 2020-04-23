@@ -1,4 +1,3 @@
-
 from segmentation.seg_utils import (
     get_image_data,
     export_image,
@@ -13,6 +12,7 @@ from segmentation.seg_utils import (
     find_middle_hist,
     k_means,
 )
+
 
 def erode(img_arr: np.array, win: int = 1) -> np.array:
     """
@@ -111,4 +111,3 @@ def canny_edge_detection(img_arr: np.array) -> np.array:
     canny_image = hysteresis(threshold_image, weak, strong)
 
     return canny_image
-

@@ -1,7 +1,10 @@
 
 import numpy as np
 from PIL import Image
+from math import sqrt
+from numba import njit
 from pathlib import Path
+
 
 def get_image_data(filename: Path) -> np.array:
     """
@@ -33,6 +36,7 @@ def select_channel(img_array: np.array, color: str = "red") -> np.array:
 
     elif color == "blue":
         return img_array[:, :, 2]
+
 
 @njit(fastmath=True)
 def histogram(img_array: np.array) -> np.array:
@@ -66,6 +70,48 @@ def histogram(img_array: np.array) -> np.array:
     return hist
 
 
+def distance(row1: np.array, row2: np.array) -> float:
+    """
+    calculate the Euclidean distance between two vectors
+    """
+    return np.linalg.norm(row1 - row2)
+
+
+@njit
+def get_neighbors(train, test_row, neighbors):
+    """
+    Locate the most similar neighbors
+    """
+    distances = [
+        (train_row, distance(test_row, train_row)) 
+        for train_row in train
+    ]
+    distances.sort(key=lambda tup: tup[1])
+
+    neighbors = [distances[i][0] for i in range(neighbors)]
+
+    return neighbors
+
+
+# Make a classification prediction with neighbors
+def predict_classification(train, test_row, count):
+    neighbors = get_neighbors(train, test_row, count)
+
+    output_values = [row[-1] for row in neighbors]
+
+    prediction = max(set(output_values), key=output_values.count)
+
+    return prediction
+
+
+# Calculate accuracy percentage
+def accuracy_metric(actual, predicted):
+	correct = 0
+	for i in range(len(actual)):
+		if actual[i] == predicted[i]:
+			correct += 1
+	return correct / float(len(actual)) * 100.0
+
 # @njit
 def middle_of(hist: np.array, min_count: int = 5) -> int:
 
@@ -78,7 +124,9 @@ def middle_of(hist: np.array, min_count: int = 5) -> int:
     while hist[hist_end] < min_count:
         hist_end -= 1  # ignore small counts at end
 
-    hist_center = int(round(np.average(np.linspace(0, 2 ** 8 - 1, num_bins), weights=hist)))
+    hist_center = int(
+        round(np.average(np.linspace(0, 2 ** 8 - 1, num_bins), weights=hist))
+    )
     left = np.sum(hist[hist_start:hist_center])
     right = np.sum(hist[hist_center : hist_end + 1])
 
@@ -89,7 +137,9 @@ def middle_of(hist: np.array, min_count: int = 5) -> int:
         else:  # right part became heavier
             right -= hist[hist_end]
             hist_end -= 1
-        new_center = int(round((hist_end + hist_start) / 2))  # re-center the weighing scale
+        new_center = int(
+            round((hist_end + hist_start) / 2)
+        )  # re-center the weighing scale
 
         if new_center < hist_center:  # move bin to the other side
             left -= hist[hist_center]

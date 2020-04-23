@@ -1,8 +1,6 @@
-
 import random
 import numpy as np
 from math import sqrt
-from numba import njit
 
 
 def non_max_suppression(img, D):
@@ -158,7 +156,9 @@ def find_middle_hist(hist: np.array, min_count: int = 5) -> int:
     while hist[hist_end] < min_count:
         hist_end -= 1  # ignore small counts at end
 
-    hist_center = int(round(np.average(np.linspace(0, 2 ** 8 - 1, num_bins), weights=hist)))
+    hist_center = int(
+        round(np.average(np.linspace(0, 2 ** 8 - 1, num_bins), weights=hist))
+    )
     left = np.sum(hist[hist_start:hist_center])
     right = np.sum(hist[hist_center : hist_end + 1])
 
@@ -169,7 +169,9 @@ def find_middle_hist(hist: np.array, min_count: int = 5) -> int:
         else:  # right part became heavier
             right -= hist[hist_end]
             hist_end -= 1
-        new_center = int(round((hist_end + hist_start) / 2))  # re-center the weighing scale
+        new_center = int(
+            round((hist_end + hist_start) / 2)
+        )  # re-center the weighing scale
 
         if new_center < hist_center:  # move bin to the other side
             left -= hist[hist_center]
@@ -195,14 +197,7 @@ def k_means(arr: np.array, k: int, num_iter: int = 5) -> np.array:
     for _ in range(num_iter):
         dist = np.array(
             [
-                [
-                    sqrt(
-                        np.sum(
-                            np.array((arr[i] - centroids[j]) ** 2)
-                        )
-                    )
-                    for j in range(k)
-                ]
+                [sqrt(np.sum(np.array((arr[i] - centroids[j]) ** 2))) for j in range(k)]
                 for i in range(size)
             ]
         )
