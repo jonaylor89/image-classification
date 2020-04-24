@@ -16,6 +16,13 @@ DATA_DIR = "datasets/Cancerous_cell_smears"
 OUTPUT_DIR = "datasets/output/"
 FILE_EXTENSION = ".BMP"
 
+#########################################################################
+#
+# File to save the dataset to
+#
+##########################################################################
+DATASET_OUT_FILE = "dataset.csv"
+
 # The number of process workers in the process pool for work on batches
 NUM_OF_PROCESSES = 10
 

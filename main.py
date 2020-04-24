@@ -8,24 +8,20 @@ from tqdm import tqdm
 from pathlib import Path
 from random import randrange
 from multiprocessing import Pool
-from typing import Any, List, Dict
 from click import clear, echo, style, secho
+from typing import Any, List, Dict, Function, Optional
 
-from utils import (
-    get_image_data,
-    export_image,
-    select_channel,
-    predict,
-    accuracy_metric,
-)
+from utils import get_image_data, export_image, select_channel, predict, accuracy_metric
 
 conf: Dict[str, Any] = {}
 
 
-# Split a dataset into k folds
-def cross_validation_split(dataset, n_folds):
+def cross_validation_split(dataset: np.array, n_folds: int) -> np.array:
+    """
+    Split a dataset into k folds
+    """
     dataset_split = []
-    dataset_copy = list(dataset)
+    dataset_copy = dataset.copy()
     fold_size = len(dataset) // n_folds
 
     for _ in range(n_folds):
@@ -37,15 +33,20 @@ def cross_validation_split(dataset, n_folds):
 
         dataset_split.append(fold)
 
-    return dataset_split
+    return np.array(dataset_split)
 
 
-def k_nearest_neighbors(train, test, count) -> np.array:
+def k_nearest_neighbors(train: np.array, test: np.array, count: int) -> np.array:
+    """
+    Apply K Nearest Neighbor algorithm with a given number of neighbors
+    """
     return np.array([predict(train, row, count) for row in test])
 
 
-# Evaluate an algorithm using a cross validation split
-def evaluate_algorithm(dataset, algorithm, n_folds, *args):
+def evaluate_algorithm(dataset: np.array, algorithm: Function, n_folds: int, *args):
+    """
+    Evaluate an algorithm using a cross validation split
+    """
     folds = cross_validation_split(dataset, n_folds)
     scores = []
 
@@ -63,6 +64,7 @@ def evaluate_algorithm(dataset, algorithm, n_folds, *args):
         predicted = algorithm(train_set, test_set, *args)
         actual = [row[-1] for row in fold]
         accuracy = accuracy_metric(actual, predicted)
+
         scores.append(accuracy)
 
     return scores
@@ -122,9 +124,14 @@ def parallel_operations(files: List[Path]):
     default="config.toml",
     show_default=True,
 )
-def main(config_location: str):
+def main(config_location: Optional[str]):
     global conf
-    conf = toml.load(config_location)
+
+    try:
+        conf = toml.load(config_location)
+    except Exception as e:
+        secho(f"[ERROR] problem with configuration file {config_location} : {e}")
+        return
 
     clear()
 
@@ -139,8 +146,8 @@ def main(config_location: str):
     Path(conf["OUTPUT_DIR"]).mkdir(parents=True, exist_ok=True)
 
     # [!!!] Only for development
-    # DATA_SUBSET = 1
-    # files = files[:DATA_SUBSET]
+    DATA_SUBSET = 1
+    files = files[:DATA_SUBSET]
 
     t0 = time.time()
     parallel_operations(files)

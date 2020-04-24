@@ -24,6 +24,10 @@ def export_image(img_arr: np.array, filename: str, conf: dict) -> None:
     img.save(conf["OUTPUT_DIR"] + filename + conf["FILE_EXTENSION"])
 
 
+def save_dataset(arr: np.array, filename: str) -> None:
+    np.savetxt(filename, arr, delimiter=",")
+
+
 def select_channel(img_array: np.array, color: str = "red") -> np.array:
     """
     select_channel isolates a color channel from a RGB image represented as a numpy array.
