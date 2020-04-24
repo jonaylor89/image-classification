@@ -5,13 +5,20 @@ import toml
 import click
 import numpy as np
 from tqdm import tqdm
+from numba import njit
 from pathlib import Path
 from random import randrange
 from multiprocessing import Pool
 from click import clear, echo, style, secho
-from typing import Any, List, Dict, Function, Optional
+from typing import Any, List, Dict, Callable, Optional
 
-from utils import get_image_data, export_image, select_channel, predict, accuracy_metric
+from utils import (
+    get_image_data,
+    export_image,
+    select_channel,
+    accuracy_metric,
+    get_neighbors,
+)
 
 conf: Dict[str, Any] = {}
 
@@ -36,6 +43,20 @@ def cross_validation_split(dataset: np.array, n_folds: int) -> np.array:
     return np.array(dataset_split)
 
 
+@njit
+def predict(train: np.array, test_row: np.array, count: int):
+    """ 
+    Make a classification prediction with neighbors
+    """
+    neighbors = get_neighbors(train, test_row, count)
+
+    output_values = [row[-1] for row in neighbors]
+
+    prediction = max(set(output_values), key=output_values.count)
+
+    return prediction
+
+
 def k_nearest_neighbors(train: np.array, test: np.array, count: int) -> np.array:
     """
     Apply K Nearest Neighbor algorithm with a given number of neighbors
@@ -43,7 +64,7 @@ def k_nearest_neighbors(train: np.array, test: np.array, count: int) -> np.array
     return np.array([predict(train, row, count) for row in test])
 
 
-def evaluate_algorithm(dataset: np.array, algorithm: Function, n_folds: int, *args):
+def evaluate_algorithm(dataset: np.array, algorithm: Callable, n_folds: int, *args):
     """
     Evaluate an algorithm using a cross validation split
     """
@@ -68,6 +89,7 @@ def evaluate_algorithm(dataset: np.array, algorithm: Function, n_folds: int, *ar
         scores.append(accuracy)
 
     return scores
+
 
 
 def apply_operations(file: Path) -> str:

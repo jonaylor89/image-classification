@@ -82,30 +82,16 @@ def distance(row1: np.array, row2: np.array) -> float:
 
 
 @njit
-def get_neighbors(train, test_row, neighbors):
+def get_neighbors(train: np.array, test_row: np.array, count: int):
     """
     Locate the most similar neighbors
     """
     distances = [(train_row, distance(test_row, train_row)) for train_row in train]
     distances.sort(key=lambda tup: tup[1])
 
-    neighbors = [distances[i][0] for i in range(neighbors)]
+    neighbors = [distances[i][0] for i in range(count)]
 
     return neighbors
-
-
-@njit
-def predict(train, test_row, count):
-    """ 
-    Make a classification prediction with neighbors
-    """
-    neighbors = get_neighbors(train, test_row, count)
-
-    output_values = [row[-1] for row in neighbors]
-
-    prediction = max(set(output_values), key=output_values.count)
-
-    return prediction
 
 
 def accuracy_metric(actual, predicted):
