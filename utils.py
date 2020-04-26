@@ -1,5 +1,6 @@
 
 import numpy as np
+import pandas as pd
 from PIL import Image
 from math import sqrt
 from numba import njit
@@ -47,7 +48,7 @@ def export_image(img_arr: np.array, filename: str, conf: dict) -> None:
 
 
 def save_dataset(arr: np.array, filename: str) -> None:
-    np.savetxt(filename, arr, delimiter=",")
+    np.savetxt(filename, arr, header="X1,X2,X3,X4,Y", delimiter=",")
 
 
 def select_channel(img_array: np.array, color: str = "red") -> np.array:
@@ -222,7 +223,7 @@ def k_nearest_neighbors(train: np.array, test: np.array, K: int) -> np.array:
     return np.array([predict(train, row, K) for row in test])
 
 
-def evaluate_algorithm(dataset: np.array, algorithm: Callable, n_folds: int, *args) -> List:
+def evaluate(dataset: np.array, n_folds: int, *args) -> List:
     """
     Evaluate an algorithm using a cross validation split
     """
@@ -240,7 +241,7 @@ def evaluate_algorithm(dataset: np.array, algorithm: Callable, n_folds: int, *ar
             test_set.append(row_copy)
             row_copy[-1] = None
 
-        predicted = algorithm(train_set, test_set, *args)
+        predicted = k_nearest_neighbors(train_set, test_set, *args)
         actual = [row[-1] for row in fold]
         accuracy = accuracy_metric(actual, predicted)
 
@@ -248,23 +249,26 @@ def evaluate_algorithm(dataset: np.array, algorithm: Callable, n_folds: int, *ar
 
     return scores
 
-
-
-def apply_operations(file: Path) -> str:
+def parallel_preprocess(files: List[Path], conf):
     """
-    1. From segmented cell images (choose any segmentation technique you prefer) 
-        extract AT LEAST four distinctive features+ 
-        assign class label according to cell type  from  documentation  (as  last  column) 
-        –there  should  be  seven  distinctive classes. 
-    2.  Save  new  dataset  as  a  matrix  with  columns  representing  features  
-        (and  last column for class label) and rows representing individual cells. 
-        Use .csv format 
-    3.  Implement  (not  use  an  existing implementation)  a  k-NN  classifier  with Euclidean distance. 
-    4. Implement 10 fold cross-validation. 
-    5. Perform classification of cells using 10 fold cross-validation and k-NN classifier. 
-        Report classification accuracy (averaged among all 10 folds of cross validation) 
-    6. Evaluate the performance of parameter k on the classification accuracy 
-        –run independent experiments with AT LEAST five different values of k and compare the results
+    Batch operates on a set of images in a multiprocess pool
+    """
+    echo(
+        style("[INFO] ", fg="green")
+        + f"initilizing process pool (number of processes: {conf['NUM_OF_PROCESSES']})"
+    )
+    echo(style("[INFO] ", fg="green") + "compiling...")
+    with Pool(conf["NUM_OF_PROCESSES"]) as p:
+        with tqdm(total=len(files)) as pbar:
+            for res in tqdm(p.imap(preprocess, files)):
+                pbar.write(res + f" finished...")
+                pbar.update()
+
+    return pd.Dataframe()
+
+def preprocess(file: Path) -> str:
+    """
+    perform feature extraction on image
     """
 
     try:
@@ -274,7 +278,7 @@ def apply_operations(file: Path) -> str:
     except Exception as e:
         return style(f"[ERROR] {file.stem} has an issue: {e}", fg="red")
 
-    return style(f"{f'[INFO:{file.stem}]':15}", fg="green")
+    return []
 
 
 

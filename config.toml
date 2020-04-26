@@ -3,6 +3,7 @@
 #
 # DATADIR: The directory where the input images are location
 # OUTPUTDIR: The directory where the output images and plots should be stored
+# DATASET_OUT_FILE: The filename for the preprocessed dataset
 #
 # **Important Note**
 # --------------------
@@ -13,15 +14,12 @@
 #
 #####################################################################
 DATA_DIR = "datasets/Cancerous_cell_smears"
-OUTPUT_DIR = "datasets/output/"
+
 FILE_EXTENSION = ".BMP"
 
-#########################################################################
-#
-# File to save the dataset to
-#
-##########################################################################
-DATASET_OUT_FILE = "dataset.csv"
+OUTPUT_DIR = "datasets/output/"
+
+DATASET_OUT_FILE = "dataset.csv" # will be joined to OUTPUT_DIR
 
 #################################################
 #
