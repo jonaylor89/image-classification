@@ -1,9 +1,31 @@
+
 import numpy as np
 from PIL import Image
 from math import sqrt
 from numba import njit
 from pathlib import Path
 from operator import eq
+
+from typing import List, Callable
+
+
+labels: List[str] = [
+    "cyl",
+    "inter",
+    "let",
+    "mod",
+    "para",
+    "super",
+    "svar",
+]
+
+
+def label_deserialize(value: int) -> str:
+    return labels[value]
+
+
+def label_serialize(label: str) -> int:
+    return labels.index(label)
 
 
 def get_image_data(filename: Path) -> np.array:
@@ -82,14 +104,14 @@ def distance(row1: np.array, row2: np.array) -> float:
 
 
 @njit
-def get_neighbors(train: np.array, test_row: np.array, count: int):
+def get_neighbors(train: np.array, test_row: np.array, K: int) -> np.array:
     """
     Locate the most similar neighbors
     """
     distances = [(train_row, distance(test_row, train_row)) for train_row in train]
     distances.sort(key=lambda tup: tup[1])
 
-    neighbors = [distances[i][0] for i in range(count)]
+    neighbors = np.array([distances[i][0] for i in range(K)])
 
     return neighbors
 
@@ -142,3 +164,117 @@ def middle_of(hist: np.array, min_count: int = 5) -> int:
         hist_center = new_center
 
     return hist_center
+
+
+def histogram_thresholding(img_arr: np.array) -> np.array:
+
+    hist = histogram(img_arr)
+
+    middle = middle_of(hist)
+
+    img_copy = img_arr.copy()
+    img_copy[img_copy > middle] = 255
+    img_copy[img_copy < middle] = 0
+
+    img_copy = img_copy.astype(np.uint8)
+
+    return img_copy.reshape(img_arr.shape)
+
+
+def cross_validation_split(dataset: np.array, n_folds: int) -> np.array:
+    """
+    Split a dataset into k folds
+    """
+    dataset_split = []
+    dataset_copy = dataset.copy()
+    fold_size = len(dataset) // n_folds
+
+    for _ in range(n_folds):
+        fold = []
+
+        while len(fold) < fold_size:
+            index = randrange(len(dataset_copy))
+            fold.append(dataset_copy.pop(index))
+
+        dataset_split.append(fold)
+
+    return np.array(dataset_split)
+
+
+@njit
+def predict(train: np.array, test_row: np.array, K: int = 3) -> np.array:
+    """ 
+    Make a classification prediction with neighbors
+    """
+    neighbors = get_neighbors(train, test_row, K)
+
+    output_values = [row[-1] for row in neighbors]
+
+    prediction = max(set(output_values), key=output_values.count)
+
+    return prediction
+
+
+def k_nearest_neighbors(train: np.array, test: np.array, K: int) -> np.array:
+    """
+    Apply K Nearest Neighbor algorithm with a given number of neighbors
+    """
+    return np.array([predict(train, row, K) for row in test])
+
+
+def evaluate_algorithm(dataset: np.array, algorithm: Callable, n_folds: int, *args) -> List:
+    """
+    Evaluate an algorithm using a cross validation split
+    """
+    folds = cross_validation_split(dataset, n_folds)
+    scores = []
+
+    for fold in folds:
+        train_set = list(folds)
+        train_set.remove(fold)
+        train_set = sum(train_set, [])
+        test_set = []
+
+        for row in fold:
+            row_copy = list(row)
+            test_set.append(row_copy)
+            row_copy[-1] = None
+
+        predicted = algorithm(train_set, test_set, *args)
+        actual = [row[-1] for row in fold]
+        accuracy = accuracy_metric(actual, predicted)
+
+        scores.append(accuracy)
+
+    return scores
+
+
+
+def apply_operations(file: Path) -> str:
+    """
+    1. From segmented cell images (choose any segmentation technique you prefer) 
+        extract AT LEAST four distinctive features+ 
+        assign class label according to cell type  from  documentation  (as  last  column) 
+        –there  should  be  seven  distinctive classes. 
+    2.  Save  new  dataset  as  a  matrix  with  columns  representing  features  
+        (and  last column for class label) and rows representing individual cells. 
+        Use .csv format 
+    3.  Implement  (not  use  an  existing implementation)  a  k-NN  classifier  with Euclidean distance. 
+    4. Implement 10 fold cross-validation. 
+    5. Perform classification of cells using 10 fold cross-validation and k-NN classifier. 
+        Report classification accuracy (averaged among all 10 folds of cross validation) 
+    6. Evaluate the performance of parameter k on the classification accuracy 
+        –run independent experiments with AT LEAST five different values of k and compare the results
+    """
+
+    try:
+        img = get_image_data(file)
+        img = select_channel(img, conf["COLOR_CHANNEL"])
+
+    except Exception as e:
+        return style(f"[ERROR] {file.stem} has an issue: {e}", fg="red")
+
+    return style(f"{f'[INFO:{file.stem}]':15}", fg="green")
+
+
+

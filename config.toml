@@ -7,7 +7,7 @@
 # **Important Note**
 # --------------------
 # If the program is being run using a docker container, these directories
-# need to be linked to the container using volumes
+# need to be linked to the container using 'volumes'
 #
 # (i.e. -v $HOME/Repos/CMSC630_Project_2/datasets:/app/datasets)
 #
@@ -23,9 +23,6 @@ FILE_EXTENSION = ".BMP"
 ##########################################################################
 DATASET_OUT_FILE = "dataset.csv"
 
-# The number of process workers in the process pool for work on batches
-NUM_OF_PROCESSES = 10
-
 #################################################
 #
 # COLOR_CHANNEL:
@@ -35,4 +32,7 @@ NUM_OF_PROCESSES = 10
 #
 #################################################
 COLOR_CHANNEL = "red"
+
+# The number of process workers in the process pool for work on batches
+NUM_OF_PROCESSES = 10
 

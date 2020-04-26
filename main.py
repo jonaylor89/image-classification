@@ -18,125 +18,13 @@ from utils import (
     select_channel,
     accuracy_metric,
     get_neighbors,
+    histogram_thresholding,
 )
 
 conf: Dict[str, Any] = {}
 
 
-def cross_validation_split(dataset: np.array, n_folds: int) -> np.array:
-    """
-    Split a dataset into k folds
-    """
-    dataset_split = []
-    dataset_copy = dataset.copy()
-    fold_size = len(dataset) // n_folds
-
-    for _ in range(n_folds):
-        fold = []
-
-        while len(fold) < fold_size:
-            index = randrange(len(dataset_copy))
-            fold.append(dataset_copy.pop(index))
-
-        dataset_split.append(fold)
-
-    return np.array(dataset_split)
-
-
-@njit
-def predict(train: np.array, test_row: np.array, count: int):
-    """ 
-    Make a classification prediction with neighbors
-    """
-    neighbors = get_neighbors(train, test_row, count)
-
-    output_values = [row[-1] for row in neighbors]
-
-    prediction = max(set(output_values), key=output_values.count)
-
-    return prediction
-
-
-def k_nearest_neighbors(train: np.array, test: np.array, count: int) -> np.array:
-    """
-    Apply K Nearest Neighbor algorithm with a given number of neighbors
-    """
-    return np.array([predict(train, row, count) for row in test])
-
-
-def evaluate_algorithm(dataset: np.array, algorithm: Callable, n_folds: int, *args):
-    """
-    Evaluate an algorithm using a cross validation split
-    """
-    folds = cross_validation_split(dataset, n_folds)
-    scores = []
-
-    for fold in folds:
-        train_set = list(folds)
-        train_set.remove(fold)
-        train_set = sum(train_set, [])
-        test_set = []
-
-        for row in fold:
-            row_copy = list(row)
-            test_set.append(row_copy)
-            row_copy[-1] = None
-
-        predicted = algorithm(train_set, test_set, *args)
-        actual = [row[-1] for row in fold]
-        accuracy = accuracy_metric(actual, predicted)
-
-        scores.append(accuracy)
-
-    return scores
-
-
-
-def apply_operations(file: Path) -> str:
-    """
-    1. From segmented cell images (choose any segmentation technique you prefer) 
-        extract AT LEAST four distinctive features+ 
-        assign class label according to cell type  from  documentation  (as  last  column) 
-        –there  should  be  seven  distinctive classes. 
-    2.  Save  new  dataset  as  a  matrix  with  columns  representing  features  
-        (and  last column for class label) and rows representing individual cells. 
-        Use .csv format 
-    3.  Implement  (not  use  an  existing implementation)  a  k-NN  classifier  with Euclidean distance. 
-    4. Implement 10 fold cross-validation. 
-    5. Perform classification of cells using 10 fold cross-validation and k-NN classifier. 
-        Report classification accuracy (averaged among all 10 folds of cross validation) 
-    6. Evaluate the performance of parameter k on the classification accuracy 
-        –run independent experiments with AT LEAST five different values of k and compare the results
-    """
-
-    try:
-        img = get_image_data(file)
-        img = select_channel(img, conf["COLOR_CHANNEL"])
-
-    except Exception as e:
-        return style(f"[ERROR] {file.stem} has an issue: {e}", fg="red")
-
-    return style(f"{f'[INFO:{file.stem}]':15}", fg="green")
-
-
-def parallel_operations(files: List[Path]):
-    """
-    Batch operates on a set of images in a multiprocess pool
-    """
-
-    echo(
-        style("[INFO] ", fg="green")
-        + f"initilizing process pool (number of processes: {conf['NUM_OF_PROCESSES']})"
-    )
-    echo(style("[INFO] ", fg="green") + "compiling...")
-    with Pool(conf["NUM_OF_PROCESSES"]) as p:
-        with tqdm(total=len(files)) as pbar:
-            for res in tqdm(p.imap(apply_operations, files)):
-                pbar.write(res + f" finished...")
-                pbar.update()
-
-
-@click.command()
+@click.group()
 @click.option(
     "config_location",
     "-c",
@@ -146,7 +34,12 @@ def parallel_operations(files: List[Path]):
     default="config.toml",
     show_default=True,
 )
-def main(config_location: Optional[str]):
+@click.pass_context
+def main(ctx, config_location: Optional[str]) -> None:
+    """
+    Setup configurations and context before invoking subcommand
+    """
+
     global conf
 
     try:
@@ -155,7 +48,24 @@ def main(config_location: Optional[str]):
         secho(f"[ERROR] problem with configuration file {config_location} : {e}")
         return
 
-    clear()
+    Path(conf["OUTPUT_DIR"]).mkdir(parents=True, exist_ok=True)
+
+    ctx.conf = conf
+
+    echo(
+        style("[INFO] ", fg="green")
+        + f"invoking {ctx.invoked_subcommand}"
+    )
+
+
+
+@main.command()
+@click.pass_context
+def create_dataset(ctx):
+    """
+    - Perform feature extraction on initial dataset
+    - Save updated features
+    """
 
     base_path: Path = Path(conf["DATA_DIR"])
 
@@ -165,18 +75,27 @@ def main(config_location: Optional[str]):
         + f"image directory: {str(base_path)}; {len(files)} images found"
     )
 
-    Path(conf["OUTPUT_DIR"]).mkdir(parents=True, exist_ok=True)
-
-    # [!!!] Only for development
-    DATA_SUBSET = 1
+        # [!!!] Only for development
+    DATA_SUBSET = 10
     files = files[:DATA_SUBSET]
 
-    t0 = time.time()
-    parallel_operations(files)
-    t_delta = time.time() - t0
 
-    print()
-    secho(f"Total time: {t_delta:.2f} s", fg="green")
+@main.command()
+@click.pass_context
+def test(ctx):
+    """
+    Run KNN on dataset to evaluate performance
+    """
+    pass
+
+
+@main.command()
+@click.pass_context
+def predict(ctx):
+    """
+    Use KNN to perdict the label of a new image
+    """
+    pass
 
 
 if __name__ == "__main__":

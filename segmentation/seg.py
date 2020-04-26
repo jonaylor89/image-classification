@@ -1,3 +1,4 @@
+
 from segmentation.seg_utils import (
     get_image_data,
     export_image,
@@ -65,20 +66,6 @@ def dilate(img_arr: np.array, win: int = 1) -> np.array:
 
     return eroded_img
 
-
-def histogram_thresholding(img_arr: np.array) -> np.array:
-
-    hist = histogram(img_arr)
-
-    middle = find_middle_hist(hist)
-
-    img_copy = img_arr.copy()
-    img_copy[img_copy > middle] = 255
-    img_copy[img_copy < middle] = 0
-
-    img_copy = img_copy.astype(np.uint8)
-
-    return img_copy.reshape(img_arr.shape)
 
 
 def histogram_clustering(img_arr: np.array) -> np.array:
