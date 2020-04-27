@@ -1,3 +1,4 @@
+import os
 import re
 import numpy as np
 from PIL import Image
@@ -5,6 +6,8 @@ from math import sqrt
 from numba import njit
 from pathlib import Path
 from operator import eq
+from click import style
+from random import randrange
 
 from typing import List, Callable
 
@@ -12,11 +15,11 @@ from typing import List, Callable
 labels: List[str] = ["cyl", "inter", "let", "mod", "para", "super", "svar"]
 
 
-def label_deserialize(value: int) -> str:
+def deserialize_label(value: int) -> str:
     return labels[value]
 
 
-def label_serialize(label: str) -> int:
+def serialize_label(label: str) -> int:
     return labels.index(label)
 
 
@@ -43,7 +46,10 @@ def save_dataset(arr: np.array, filename: str) -> None:
 
 
 def load_dataset(filename: str) -> np.array:
-    np.loadtxt(filename, arr, delimiter=",")
+    try:
+        return np.loadtxt(filename, delimiter=",")
+    except:
+        return []
 
 
 def select_channel(img_array: np.array, color: str = "red") -> np.array:
@@ -92,31 +98,11 @@ def histogram(img_array: np.array) -> np.array:
     return hist
 
 
-def distance(row1: np.array, row2: np.array) -> float:
-    """
-    calculate the Euclidean distance between two vectors
-    """
-    return np.linalg.norm(row1 - row2)
-
-
-@njit
-def get_neighbors(train: np.array, test_row: np.array, K: int) -> np.array:
-    """
-    Locate the most similar neighbors
-    """
-    distances = [(train_row, distance(test_row, train_row)) for train_row in train]
-    distances.sort(key=lambda tup: tup[1])
-
-    neighbors = np.array([distances[i][0] for i in range(K)])
-
-    return neighbors
-
-
 def accuracy_metric(actual, predicted):
     """
     Calculate accuracy percentage
     """
-    correct = map(eq, actual, predicted)
+    correct = list(map(eq, actual, predicted))
 
     return (sum(correct) / len(correct)) * 100.0
 
@@ -177,27 +163,29 @@ def histogram_thresholding(img_arr: np.array) -> np.array:
     return img_copy.reshape(img_arr.shape)
 
 
-def cross_validation_split(dataset: np.array, n_folds: int) -> np.array:
+
+# @njit
+def distance(row1: np.array, row2: np.array) -> float:
     """
-    Split a dataset into k folds
+    calculate the Euclidean distance between two vectors
     """
-    dataset_split = []
-    dataset_copy = dataset.copy()
-    fold_size = len(dataset) // n_folds
-
-    for _ in range(n_folds):
-        fold = []
-
-        while len(fold) < fold_size:
-            index = randrange(len(dataset_copy))
-            fold.append(dataset_copy.pop(index))
-
-        dataset_split.append(fold)
-
-    return np.array(dataset_split)
+    return np.linalg.norm(row1[:4] - row2[:4])
 
 
-@njit
+# @njit
+def get_neighbors(train: np.array, test_row: np.array, K: int) -> np.array:
+    """
+    Locate the most similar neighbors
+    """
+    distances = [(train_row, distance(test_row, train_row)) for train_row in train]
+    distances.sort(key=lambda tup: tup[1])
+
+    neighbors = np.array([distances[i][0] for i in range(K)])
+
+    return neighbors
+
+
+# @njit
 def predict(train: np.array, test_row: np.array, K: int = 3) -> np.array:
     """ 
     Make a classification prediction with neighbors
@@ -205,6 +193,7 @@ def predict(train: np.array, test_row: np.array, K: int = 3) -> np.array:
     neighbors = get_neighbors(train, test_row, K)
 
     output_values = [row[-1] for row in neighbors]
+
 
     prediction = max(set(output_values), key=output_values.count)
 
@@ -218,6 +207,27 @@ def k_nearest_neighbors(train: np.array, test: np.array, K: int) -> np.array:
     return np.array([predict(train, row, K) for row in test])
 
 
+def cross_validation_split(dataset: np.array, n_folds: int) -> np.array:
+    """
+    Split a dataset into k folds
+    """
+    dataset_split = []
+    dataset_copy = dataset.copy()
+    fold_size = len(dataset) // n_folds
+
+    for _ in range(n_folds):
+        fold = []
+
+        while len(fold) < fold_size:
+            index = randrange(len(dataset_copy))
+            fold.append(dataset_copy[index])
+            dataset_copy = np.delete(dataset_copy, index, axis=0)
+
+        dataset_split.append(fold)
+
+    return np.array(dataset_split)
+
+
 def evaluate(dataset: np.array, n_folds: int, K: int) -> List:
     """
     Evaluate an algorithm using a cross validation split
@@ -225,16 +235,17 @@ def evaluate(dataset: np.array, n_folds: int, K: int) -> List:
     folds = cross_validation_split(dataset, n_folds)
     scores = []
 
-    for fold in folds:
-        train_set = list(folds)
-        train_set.remove(fold)
-        train_set = sum(train_set, [])
+    for idx, fold in enumerate(folds):
+        train_set = np.delete(folds, idx, axis=0)
+        train_set = np.sum(train_set, axis=0)
         test_set = []
 
         for row in fold:
-            row_copy = list(row)
+            row_copy = row.copy()
             test_set.append(row_copy)
             row_copy[-1] = None
+
+        test_set = np.array(test_set)
 
         predicted = k_nearest_neighbors(train_set, test_set, K)
         actual = [row[-1] for row in fold]
@@ -245,29 +256,7 @@ def evaluate(dataset: np.array, n_folds: int, K: int) -> List:
     return scores
 
 
-def parallel_preprocess(files: List[Path], conf):
-    """
-    Batch operates on a set of images in a multiprocess pool
-    """
-
-    features = []
-
-    echo(
-        style("[INFO] ", fg="green")
-        + f"initilizing process pool (number of processes: {conf['NUM_OF_PROCESSES']})"
-    )
-    echo(style("[INFO] ", fg="green") + "compiling...")
-    with Pool(conf["NUM_OF_PROCESSES"]) as p:
-        with tqdm(total=len(files)) as pbar:
-            for res in tqdm(p.imap(preprocess, files)):
-                pbar.write(res["msg"] + f" finished...")
-                features.append(res["features"])
-                pbar.update()
-
-    return np.array(features)
-
-
-def preprocess(file: Path) -> str:
+def extract_features(conf: dict, file: Path) -> dict:
     """
     perform feature extraction on image
     """
@@ -279,11 +268,24 @@ def preprocess(file: Path) -> str:
         hist = histogram(img)
 
         # parse the label name and file number
-        search_obj = re.search( r'(\D+)(\d+).*', line, re.M|re.I)
+        search_obj = re.search( r'(\D+)(\d+).*', file.stem, re.M|re.I)
         label = search_obj.group(1)
+        y = serialize_label(label)
         number = search_obj.group(2)
 
-        # Feature 1 histogram mean
+        # - Feature 1 histogram mean
+        # - Symmetry 
+        # - width/height
+        # - Radius of smallest enclosing sphere
+        # - entropy of pixels
+        x1 = 0
+
+        x2 = 0
+
+        x3 = 0
+
+        x4 = 0
+
 
     except Exception as e:
         return {
@@ -292,6 +294,6 @@ def preprocess(file: Path) -> str:
         }
 
     return {
-        "features": [],
-        "msg": style(f"{f'[INFO:{file.stem}]':15}", fg="green"),
+        "features": [x1, x2, x3, x4, y],
+        "msg": style(f"{f'[INFO:{file.stem}]':15} finished...", fg="green"),
     }

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import time
 import toml
 import click
@@ -7,12 +8,12 @@ import numpy as np
 from tqdm import tqdm
 from numba import njit
 from pathlib import Path
-from random import randrange
+from functools import partial
 from multiprocessing import Pool
 from click import clear, echo, style, secho
 from typing import Any, List, Dict, Callable, Optional
 
-from utils import parallel_preprocess, save_dataset, load_dataset, evaluate
+from utils import save_dataset, load_dataset, evaluate, extract_features
 
 conf: Dict[str, Any] = {}
 
@@ -74,18 +75,27 @@ def preprocess(ctx):
         + f"image directory: {str(base_path)}; {len(files)} images found"
     )
 
-    # [!!!] Only for development
-    DATA_SUBSET = 10
-    files = files[:DATA_SUBSET]
+    features = []
+    extract_img_features = partial(extract_features, conf)
+    echo(
+        style("[INFO] ", fg="green")
+        + f"initilizing process pool (number of processes: {conf['NUM_OF_PROCESSES']})"
+    )
+    echo(style("[INFO] ", fg="green") + "compiling...")
+    with Pool(conf["NUM_OF_PROCESSES"]) as p:
+        with tqdm(total=len(files)) as pbar:
+            for res in tqdm(p.imap(extract_img_features, files)):
+                pbar.write(res["msg"])
+                if len(res["features"]) == 5:
+                    features.append(res["features"])
+                pbar.update()
 
-    features = parallel_preprocess(files, conf)
-
-    output_file = os.path.join(conf["DATA_OUTDIR"], conf["DATASET_OUT_FILE"])
+    output_file = Path(os.path.join(conf["OUTPUT_DIR"], conf["DATASET_OUT_FILE"]))
     echo(
         style("[INFO] ", fg="green")
         + f"saving preprocessed data to {output_file}; {len(features)} rows"
     )
-    save_dataset(features, output_file)
+    save_dataset(np.array(features), output_file)
 
 
 @main.command()
@@ -105,12 +115,21 @@ def test(ctx):
         –run independent experiments with AT LEAST five different values of k and compare the results
     """
 
-    output_file = os.path.join(conf["DATA_OUTDIR"], conf["DATASET_OUT_FILE"])
+    output_file = Path(os.path.join(conf["OUTPUT_DIR"], conf["DATASET_OUT_FILE"]))
     dataset = load_dataset(output_file)
+
+    if len(dataset) == 0:
+        echo(
+            style("[ERROR] ", fg="red")
+            + "preprocessed dataset not found or is empty"
+        )
+        return
 
     for k in range(1, 6):
         scores = evaluate(dataset, 10, k)
+        echo("\n")
         echo(style("[INFO] ", fg="green") + f"k={k} => {scores}")
+        echo('\tMean Accuracy: %.3f%%' % (sum(scores)/float(len(scores))))
 
 
 @main.command()
