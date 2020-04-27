@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
 import os
-import time
 import toml
 import click
 import numpy as np
 from tqdm import tqdm
-from numba import njit
 from pathlib import Path
 from functools import partial
 from multiprocessing import Pool
@@ -20,6 +18,7 @@ from utils import (
     extract_features,
     predict_label,
     deserialize_label,
+    normalize,
 )
 
 conf: Dict[str, Any] = {}
@@ -100,7 +99,8 @@ def preprocess(ctx):
         style("[INFO] ", fg="green")
         + f"saving preprocessed data to {output_file}; {len(features)} rows"
     )
-    save_dataset(np.array(features), output_file)
+    norm_dataset = normalize(np.array(features))
+    save_dataset(norm_dataset, output_file)
 
 
 @main.command()
@@ -153,6 +153,10 @@ def predict(ctx, path, k):
     KNN predict with extracted features
     """
     features = extract_features(conf, Path(path))["features"]
+    if len(features) != 5:
+        return 
+
+    features = np.reshape(features, (-1, 5))
 
     output_file = Path(os.path.join(conf["OUTPUT_DIR"], conf["DATASET_OUT_FILE"]))
     dataset = load_dataset(output_file)

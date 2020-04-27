@@ -9,7 +9,7 @@ from operator import eq
 from click import style
 from random import randrange
 
-from typing import List, Callable
+from typing import List, Callable, Optional
 
 
 labels: List[str] = ["cyl", "inter", "let", "mod", "para", "super", "svar"]
@@ -98,6 +98,17 @@ def histogram(img_array: np.array) -> np.array:
     return hist
 
 
+@njit
+def entropy(img_arr: np.array) -> int:
+
+    marg = histogram(img_arr) / img_arr.size
+    marg = np.array(list(filter(lambda p: p > 0, marg)))
+
+    entropy = -np.sum(np.multiply(marg, np.log2(marg)))
+
+    return entropy
+
+#njit
 def accuracy_metric(actual, predicted):
     """
     Calculate accuracy percentage
@@ -112,7 +123,7 @@ def erode(img_arr: np.array, win: int = 1) -> np.array:
     erodes 2D numpy array holding a binary image
     """
 
-    r = np.zeros(img_arr.shape)
+    r = np.zeros_like(img_arr)
     [yy, xx] = np.where(img_arr > 0)
 
     # prepare neighborhoods
@@ -198,29 +209,10 @@ def middle_of(hist: np.array, min_count: int = 5) -> int:
     return hist_center
 
 
-def opening(img_arr: np.array, conf: dict) -> np.array:
-    segmented_img = histogram_thresholding(img_arr)
-    eroded = erode(segmented_img, conf["OPENING_WINDOW"])
-    opened = dilate(eroded, conf["OPENING_WINDOW"])
+def histogram_thresholding(img_arr: np.array, hist: Optional[np.array] = None) -> np.array:
 
-    return opened
-
-
-def area_of(img_arr: np.array, conf: dict) -> int:
-
-    opened = opening(img_arr, conf)
-
-    unique, counts = np.unique(opened, return_counts=True)
-    counter = dict(zip(unique, counts))
-
-    black_pixel_count = counter[0]
-
-    return black_pixel_count
-
-
-def histogram_thresholding(img_arr: np.array) -> np.array:
-
-    hist = histogram(img_arr)
+    if hist == None:
+        hist = histogram(img_arr)
 
     middle = middle_of(hist)
 
@@ -231,6 +223,26 @@ def histogram_thresholding(img_arr: np.array) -> np.array:
     img_copy = img_copy.astype(np.uint8)
 
     return img_copy.reshape(img_arr.shape)
+    
+
+def opening(img_arr: np.array, conf: dict, hist: Optional[np.array] = None) -> np.array:
+    segmented_img = histogram_thresholding(img_arr)
+    eroded = erode(segmented_img, conf["OPENING_WINDOW"])
+    opened = dilate(eroded, conf["OPENING_WINDOW"])
+
+    return opened
+
+
+def area_of(img_arr: np.array, conf: dict, hist: Optional[np.array] = None) -> int:
+
+    opened = opening(img_arr, conf, hist)
+
+    unique, counts = np.unique(opened, return_counts=True)
+    counter = dict(zip(unique, counts))
+
+    black_pixel_count = counter[0]
+
+    return black_pixel_count
 
 
 @njit
@@ -248,7 +260,7 @@ def normalize(dataset: np.array) -> np.array:
         if rng == 0:
             continue
 
-        norm_dataset[:, idx] = (norm_dataset[:, idx] - smallest) / (rng)
+        norm_dataset[:, idx] = (norm_dataset[:, idx] - smallest) / rng
 
     return norm_dataset
 
@@ -321,9 +333,7 @@ def evaluate(dataset: np.array, n_folds: int, K: int) -> List:
     Evaluate an algorithm using a cross validation split
     """
 
-    norm_dataset = normalize(dataset)
-
-    folds = cross_validation_split(norm_dataset, n_folds)
+    folds = cross_validation_split(dataset, n_folds)
     scores = []
 
     for idx, fold in enumerate(folds):
@@ -364,18 +374,19 @@ def extract_features(conf: dict, file: Path) -> dict:
         y = serialize_label(label)
         number = search_obj.group(2)
 
-        # - Feature 1 histogram mean
+        # - histogram mean
         # - Symmetry
         # - width/height
         # - Radius of smallest enclosing sphere
-        # - entropy of pixels,
 
-        # Area
-        x1 = area_of(img, conf)
+        # Area of cluster
+        x1 = area_of(img, conf, hist)
 
-        x2 = 0
+        # Entropy of pixels,
+        x2 = entropy(img)
 
-        x3 = 0
+        # histogram mean
+        x3 = np.mean(hist)
 
         x4 = 0
 
