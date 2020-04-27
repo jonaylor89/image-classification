@@ -140,7 +140,7 @@ def test(ctx):
 
 @main.command()
 @click.argument("path", nargs=1, type=click.Path(exists=True))
-@click.option("k", "-k", "--k-value", envvar="CMSC630_K", default=3, show_default=True)
+@click.option("k", "-k", "--k-value", default=3, show_default=True)
 @click.pass_context
 def predict(ctx, path, k):
     """

@@ -369,6 +369,7 @@ def extract_features(conf: dict, file: Path) -> dict:
         # - width/height
         # - Radius of smallest enclosing sphere
         # - entropy of pixels,
+
         # Area
         x1 = area_of(img, conf)
 
