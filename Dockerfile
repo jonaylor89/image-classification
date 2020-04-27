@@ -16,4 +16,4 @@ RUN pipenv install --deploy --system
 RUN mkdir -p /app/datasets/Cancerous_cell_smears
 
 # run script
-CMD ["python3", "/app/main.py", "preprocess"]
+CMD ["python3", "/app/main.py", "preprocess", "test"]

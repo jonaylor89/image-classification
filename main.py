@@ -18,7 +18,7 @@ from utils import save_dataset, load_dataset, evaluate, extract_features
 conf: Dict[str, Any] = {}
 
 
-@click.group()
+@click.group(chain=True)
 @click.option(
     "config_location",
     "-c",
@@ -106,7 +106,6 @@ def test(ctx):
     """
 
     """
-
     3.  Implement  (not  use  an  existing implementation)  a  k-NN  classifier  with Euclidean distance. 
     4. Implement 10 fold cross-validation. 
     5. Perform classification of cells using 10 fold cross-validation and k-NN classifier. 
@@ -116,14 +115,17 @@ def test(ctx):
     """
 
     output_file = Path(os.path.join(conf["OUTPUT_DIR"], conf["DATASET_OUT_FILE"]))
+
     dataset = load_dataset(output_file)
 
     if len(dataset) == 0:
         echo(
             style("[ERROR] ", fg="red")
-            + "preprocessed dataset not found or is empty"
+            + "preprocessed dataset not found or is empty: exiting..."
         )
         return
+
+
 
     for k in range(1, 6):
         scores = evaluate(dataset, 10, k)
