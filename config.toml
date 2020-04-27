@@ -37,4 +37,14 @@ N_FOLDS = 10
 # The number of process workers in the process pool for work on batches
 NUM_OF_PROCESSES = 10
 
-# CACHE = true
+#############################################################
+#
+# OPENING_WINDOW:
+#
+# The size of the window for performing erosion and dilation
+#
+# A higher value, the bigger the objects will have to be to 
+# survived being eroded and dilated
+#
+#############################################################
+OPENING_WINDOW = 1

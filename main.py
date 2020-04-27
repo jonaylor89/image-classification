@@ -13,7 +13,7 @@ from multiprocessing import Pool
 from click import clear, echo, style, secho
 from typing import Any, List, Dict, Callable, Optional
 
-from utils import save_dataset, load_dataset, evaluate, extract_features
+from utils import save_dataset, load_dataset, evaluate, extract_features, predict_label, deserialize_label
 
 conf: Dict[str, Any] = {}
 
@@ -47,7 +47,6 @@ def main(ctx, config_location: Optional[str]) -> None:
 
     Path(conf["OUTPUT_DIR"]).mkdir(parents=True, exist_ok=True)
 
-    echo(style("[INFO] ", fg="green") + f"invoking {ctx.invoked_subcommand}")
 
 
 @main.command()
@@ -134,13 +133,29 @@ def test(ctx):
 
 
 @main.command()
+@click.argument('path', nargs=1, type=click.Path(exists=True))
 @click.option("k", "-k", "--k-value", envvar="CMSC630_K", default=3, show_default=True)
 @click.pass_context
-def predict(ctx, k):
+def predict(ctx, path, k):
     """
     Use KNN to perdict the label of a new image
     """
-    pass
+
+    """
+    extract features
+    open dataset
+    KNN predict with extracted features
+    """
+    features = extract_features(conf, Path(path))["features"]
+
+    output_file = Path(os.path.join(conf["OUTPUT_DIR"], conf["DATASET_OUT_FILE"]))
+    dataset = load_dataset(output_file)
+
+    label = predict_label(dataset, features)
+
+    label_name = deserialize_label(int(label))
+
+    echo(label_name)
 
 
 if __name__ == "__main__":

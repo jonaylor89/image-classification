@@ -107,6 +107,56 @@ def accuracy_metric(actual, predicted):
     return (sum(correct) / len(correct)) * 100.0
 
 
+def erode(img_arr: np.array, win: int = 1) -> np.array:
+    """
+    erodes 2D numpy array holding a binary image
+    """
+
+    r = np.zeros(img_arr.shape)
+    [yy, xx] = np.where(img_arr > 0)
+
+    # prepare neighborhoods
+    off = np.tile(range(-win, win + 1), (2 * win + 1, 1))
+    x_off = off.flatten()
+    y_off = off.T.flatten()
+
+    # duplicate each neighborhood element for each index
+    n = len(xx.flatten())
+    x_off = np.tile(x_off, (n, 1)).flatten()
+    y_off = np.tile(y_off, (n, 1)).flatten()
+
+    # round out offset
+    ind = np.sqrt(x_off ** 2 + y_off ** 2) > win
+    x_off[ind] = 0
+    y_off[ind] = 0
+
+    # duplicate each index for each neighborhood element
+    xx = np.tile(xx, ((2 * win + 1) ** 2))
+    yy = np.tile(yy, ((2 * win + 1) ** 2))
+
+    nx = xx + x_off
+    ny = yy + y_off
+
+    # bounds checking
+    ny[ny < 0] = 0
+    ny[ny > img_arr.shape[0] - 1] = img_arr.shape[0] - 1
+    nx[nx < 0] = 0
+    nx[nx > img_arr.shape[1] - 1] = img_arr.shape[1] - 1
+
+    r[ny, nx] = 255
+
+    return r.astype(np.uint8)
+
+
+def dilate(img_arr: np.array, win: int = 3) -> np.array:
+
+    inverted_img = np.invert(img_arr)
+    eroded_inverse = erode(inverted_img, win)
+    eroded_img = np.invert(eroded_inverse)
+
+    return eroded_img
+
+
 # @njit
 def middle_of(hist: np.array, min_count: int = 5) -> int:
 
@@ -148,6 +198,26 @@ def middle_of(hist: np.array, min_count: int = 5) -> int:
     return hist_center
 
 
+def opening(img_arr: np.array, conf: dict) -> np.array:
+    segmented_img = histogram_thresholding(img_arr)
+    eroded = erode(segmented_img, conf["OPENING_WINDOW"])
+    opened = dilate(eroded, conf["OPENING_WINDOW"])
+
+    return opened
+
+
+def area_of(img_arr: np.array, conf: dict) -> int:
+
+    opened = opening(img_arr, conf)
+    
+    unique, counts = np.unique(opened, return_counts=True)
+    counter = dict(zip(unique, counts))
+
+    black_pixel_count = counter[0]
+
+    return black_pixel_count
+
+
 def histogram_thresholding(img_arr: np.array) -> np.array:
 
     hist = histogram(img_arr)
@@ -185,7 +255,7 @@ def get_neighbors(train: np.array, test_row: np.array, K: int) -> np.array:
 
 
 # @njit
-def predict(train: np.array, test_row: np.array, K: int = 3) -> np.array:
+def predict_label(train: np.array, test_row: np.array, K: int = 3) -> np.array:
     """ 
     Make a classification prediction with neighbors
     """
@@ -202,7 +272,7 @@ def k_nearest_neighbors(train: np.array, test: np.array, K: int) -> np.array:
     """
     Apply K Nearest Neighbor algorithm with a given number of neighbors
     """
-    return np.array([predict(train, row, K) for row in test])
+    return np.array([predict_label(train, row, K) for row in test])
 
 
 def cross_validation_split(dataset: np.array, n_folds: int) -> np.array:
@@ -276,8 +346,9 @@ def extract_features(conf: dict, file: Path) -> dict:
         # - Symmetry
         # - width/height
         # - Radius of smallest enclosing sphere
-        # - entropy of pixels
-        x1 = 0
+        # - entropy of pixels,
+        # Area
+        x1 = area_of(img, conf)
 
         x2 = 0
 
