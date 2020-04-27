@@ -209,7 +209,7 @@ def opening(img_arr: np.array, conf: dict) -> np.array:
 def area_of(img_arr: np.array, conf: dict) -> int:
 
     opened = opening(img_arr, conf)
-    
+
     unique, counts = np.unique(opened, return_counts=True)
     counter = dict(zip(unique, counts))
 
@@ -231,6 +231,26 @@ def histogram_thresholding(img_arr: np.array) -> np.array:
     img_copy = img_copy.astype(np.uint8)
 
     return img_copy.reshape(img_arr.shape)
+
+
+@njit
+def normalize(dataset: np.array) -> np.array:
+
+    norm_dataset = dataset.copy()
+
+    sans_labels = dataset[:, :-1]
+    for idx, column in enumerate(sans_labels.T):
+        smallest = np.min(column)
+        largest = np.max(column)
+
+        rng = largest - smallest
+
+        if rng == 0:
+            continue
+
+        norm_dataset[:, idx] = (norm_dataset[:, idx] - smallest) / (rng)
+
+    return norm_dataset
 
 
 # @njit
@@ -301,7 +321,9 @@ def evaluate(dataset: np.array, n_folds: int, K: int) -> List:
     Evaluate an algorithm using a cross validation split
     """
 
-    folds = cross_validation_split(dataset, n_folds)
+    norm_dataset = normalize(dataset)
+
+    folds = cross_validation_split(norm_dataset, n_folds)
     scores = []
 
     for idx, fold in enumerate(folds):

@@ -13,7 +13,14 @@ from multiprocessing import Pool
 from click import clear, echo, style, secho
 from typing import Any, List, Dict, Callable, Optional
 
-from utils import save_dataset, load_dataset, evaluate, extract_features, predict_label, deserialize_label
+from utils import (
+    save_dataset,
+    load_dataset,
+    evaluate,
+    extract_features,
+    predict_label,
+    deserialize_label,
+)
 
 conf: Dict[str, Any] = {}
 
@@ -46,7 +53,6 @@ def main(ctx, config_location: Optional[str]) -> None:
         return
 
     Path(conf["OUTPUT_DIR"]).mkdir(parents=True, exist_ok=True)
-
 
 
 @main.command()
@@ -133,7 +139,7 @@ def test(ctx):
 
 
 @main.command()
-@click.argument('path', nargs=1, type=click.Path(exists=True))
+@click.argument("path", nargs=1, type=click.Path(exists=True))
 @click.option("k", "-k", "--k-value", envvar="CMSC630_K", default=3, show_default=True)
 @click.pass_context
 def predict(ctx, path, k):
@@ -150,8 +156,9 @@ def predict(ctx, path, k):
 
     output_file = Path(os.path.join(conf["OUTPUT_DIR"], conf["DATASET_OUT_FILE"]))
     dataset = load_dataset(output_file)
+    norm_dataset = normalize(dataset)
 
-    label = predict_label(dataset, features, k)
+    label = predict_label(norm_dataset, features, k)
 
     label_name = deserialize_label(int(label))
 
