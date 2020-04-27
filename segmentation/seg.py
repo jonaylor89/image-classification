@@ -1,4 +1,3 @@
-
 from segmentation.seg_utils import (
     get_image_data,
     export_image,
@@ -65,7 +64,6 @@ def dilate(img_arr: np.array, win: int = 1) -> np.array:
     eroded_img = np.invert(eroded_inverse)
 
     return eroded_img
-
 
 
 def histogram_clustering(img_arr: np.array) -> np.array:

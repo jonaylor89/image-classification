@@ -1,6 +1,5 @@
-
+import re
 import numpy as np
-import pandas as pd
 from PIL import Image
 from math import sqrt
 from numba import njit
@@ -10,15 +9,7 @@ from operator import eq
 from typing import List, Callable
 
 
-labels: List[str] = [
-    "cyl",
-    "inter",
-    "let",
-    "mod",
-    "para",
-    "super",
-    "svar",
-]
+labels: List[str] = ["cyl", "inter", "let", "mod", "para", "super", "svar"]
 
 
 def label_deserialize(value: int) -> str:
@@ -48,7 +39,11 @@ def export_image(img_arr: np.array, filename: str, conf: dict) -> None:
 
 
 def save_dataset(arr: np.array, filename: str) -> None:
-    np.savetxt(filename, arr, header="X1,X2,X3,X4,Y", delimiter=",")
+    np.savetxt(filename, arr, delimiter=",")
+
+
+def load_dataset(filename: str) -> np.array:
+    np.loadtxt(filename, arr, delimiter=",")
 
 
 def select_channel(img_array: np.array, color: str = "red") -> np.array:
@@ -223,7 +218,7 @@ def k_nearest_neighbors(train: np.array, test: np.array, K: int) -> np.array:
     return np.array([predict(train, row, K) for row in test])
 
 
-def evaluate(dataset: np.array, n_folds: int, *args) -> List:
+def evaluate(dataset: np.array, n_folds: int, K: int) -> List:
     """
     Evaluate an algorithm using a cross validation split
     """
@@ -241,7 +236,7 @@ def evaluate(dataset: np.array, n_folds: int, *args) -> List:
             test_set.append(row_copy)
             row_copy[-1] = None
 
-        predicted = k_nearest_neighbors(train_set, test_set, *args)
+        predicted = k_nearest_neighbors(train_set, test_set, K)
         actual = [row[-1] for row in fold]
         accuracy = accuracy_metric(actual, predicted)
 
@@ -249,10 +244,14 @@ def evaluate(dataset: np.array, n_folds: int, *args) -> List:
 
     return scores
 
+
 def parallel_preprocess(files: List[Path], conf):
     """
     Batch operates on a set of images in a multiprocess pool
     """
+
+    features = []
+
     echo(
         style("[INFO] ", fg="green")
         + f"initilizing process pool (number of processes: {conf['NUM_OF_PROCESSES']})"
@@ -261,10 +260,12 @@ def parallel_preprocess(files: List[Path], conf):
     with Pool(conf["NUM_OF_PROCESSES"]) as p:
         with tqdm(total=len(files)) as pbar:
             for res in tqdm(p.imap(preprocess, files)):
-                pbar.write(res + f" finished...")
+                pbar.write(res["msg"] + f" finished...")
+                features.append(res["features"])
                 pbar.update()
 
-    return pd.Dataframe()
+    return np.array(features)
+
 
 def preprocess(file: Path) -> str:
     """
@@ -275,10 +276,22 @@ def preprocess(file: Path) -> str:
         img = get_image_data(file)
         img = select_channel(img, conf["COLOR_CHANNEL"])
 
+        hist = histogram(img)
+
+        # parse the label name and file number
+        search_obj = re.search( r'(\D+)(\d+).*', line, re.M|re.I)
+        label = search_obj.group(1)
+        number = search_obj.group(2)
+
+        # Feature 1 histogram mean
+
     except Exception as e:
-        return style(f"[ERROR] {file.stem} has an issue: {e}", fg="red")
+        return {
+            "features": [],
+            "msg": style(f"[ERROR] {file.stem} has an issue: {e}", fg="red"),
+        }
 
-    return []
-
-
-
+    return {
+        "features": [],
+        "msg": style(f"{f'[INFO:{file.stem}]':15}", fg="green"),
+    }
