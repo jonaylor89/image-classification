@@ -151,7 +151,7 @@ def predict(ctx, path, k):
     output_file = Path(os.path.join(conf["OUTPUT_DIR"], conf["DATASET_OUT_FILE"]))
     dataset = load_dataset(output_file)
 
-    label = predict_label(dataset, features)
+    label = predict_label(dataset, features, k)
 
     label_name = deserialize_label(int(label))
 
