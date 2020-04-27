@@ -125,13 +125,12 @@ def test(ctx):
         )
         return
 
-
-
     for k in range(1, 6):
-        scores = evaluate(dataset, 10, k)
+        scores = evaluate(dataset, conf["N_FOLDS"], k)
         echo("\n")
-        echo(style("[INFO] ", fg="green") + f"k={k} => {scores}")
-        echo('\tMean Accuracy: %.3f%%' % (sum(scores)/float(len(scores))))
+        echo(style("[INFO] ", fg="green") + f"k={k}")
+        echo(f"\tScores: {['{:.3f}%'.format(score) for score in scores]}")
+        echo(f"\tMean Accuracy: {(sum(scores)/float(len(scores))):.3f}%")
 
 
 @main.command()

@@ -163,13 +163,12 @@ def histogram_thresholding(img_arr: np.array) -> np.array:
     return img_copy.reshape(img_arr.shape)
 
 
-
 # @njit
 def distance(row1: np.array, row2: np.array) -> float:
     """
     calculate the Euclidean distance between two vectors
     """
-    return np.linalg.norm(row1[:4] - row2[:4])
+    return np.linalg.norm(row1 - row2)
 
 
 # @njit
@@ -193,7 +192,6 @@ def predict(train: np.array, test_row: np.array, K: int = 3) -> np.array:
     neighbors = get_neighbors(train, test_row, K)
 
     output_values = [row[-1] for row in neighbors]
-
 
     prediction = max(set(output_values), key=output_values.count)
 
@@ -232,12 +230,13 @@ def evaluate(dataset: np.array, n_folds: int, K: int) -> List:
     """
     Evaluate an algorithm using a cross validation split
     """
+
     folds = cross_validation_split(dataset, n_folds)
     scores = []
 
     for idx, fold in enumerate(folds):
         train_set = np.delete(folds, idx, axis=0)
-        train_set = np.sum(train_set, axis=0)
+        train_set = np.concatenate(train_set, axis=0)
         test_set = []
 
         for row in fold:
@@ -268,13 +267,13 @@ def extract_features(conf: dict, file: Path) -> dict:
         hist = histogram(img)
 
         # parse the label name and file number
-        search_obj = re.search( r'(\D+)(\d+).*', file.stem, re.M|re.I)
+        search_obj = re.search(r"(\D+)(\d+).*", file.stem, re.M | re.I)
         label = search_obj.group(1)
         y = serialize_label(label)
         number = search_obj.group(2)
 
         # - Feature 1 histogram mean
-        # - Symmetry 
+        # - Symmetry
         # - width/height
         # - Radius of smallest enclosing sphere
         # - entropy of pixels
@@ -285,7 +284,6 @@ def extract_features(conf: dict, file: Path) -> dict:
         x3 = 0
 
         x4 = 0
-
 
     except Exception as e:
         return {
