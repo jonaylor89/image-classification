@@ -68,11 +68,11 @@ pipenv run python main.py predict /path/to/img
 ```bash
 # Pipefile
 [packages]
-pillow = "**"     # reading and writing images
-numpy = "**"      # fast array operations
-*click = "**"      # command line interface utility
-numba = "**"      # just-in-time compiler for operations
-toml = "**"       # reading configuration file
+pillow = "*"     # reading and writing images
+numpy = "*"      # fast array operations
+*click = "*"      # command line interface utility
+numba = "*"      # just-in-time compiler for operations
+toml = "*"       # reading configuration file
 tqdm = "*"       # progress bar
 ```
 
