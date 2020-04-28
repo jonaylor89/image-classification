@@ -154,7 +154,7 @@ def predict(ctx, path, k):
     """
     features = extract_features(conf, Path(path))["features"]
     if len(features) != 5:
-        return 
+        return
 
     features = np.reshape(features, (-1, 5))
 

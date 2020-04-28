@@ -108,7 +108,8 @@ def entropy(img_arr: np.array) -> int:
 
     return entropy
 
-#njit
+
+# njit
 def accuracy_metric(actual, predicted):
     """
     Calculate accuracy percentage
@@ -209,7 +210,9 @@ def middle_of(hist: np.array, min_count: int = 5) -> int:
     return hist_center
 
 
-def histogram_thresholding(img_arr: np.array, hist: Optional[np.array] = None) -> np.array:
+def histogram_thresholding(
+    img_arr: np.array, hist: Optional[np.array] = None
+) -> np.array:
 
     if hist == None:
         hist = histogram(img_arr)
@@ -223,7 +226,7 @@ def histogram_thresholding(img_arr: np.array, hist: Optional[np.array] = None) -
     img_copy = img_copy.astype(np.uint8)
 
     return img_copy.reshape(img_arr.shape)
-    
+
 
 def opening(img_arr: np.array, conf: dict, hist: Optional[np.array] = None) -> np.array:
     segmented_img = histogram_thresholding(img_arr)
@@ -233,16 +236,62 @@ def opening(img_arr: np.array, conf: dict, hist: Optional[np.array] = None) -> n
     return opened
 
 
-def area_of(img_arr: np.array, conf: dict, hist: Optional[np.array] = None) -> int:
+def area(img_arr: np.array, conf: dict, hist: Optional[np.array] = None) -> int:
 
-    opened = opening(img_arr, conf, hist)
-
-    unique, counts = np.unique(opened, return_counts=True)
+    unique, counts = np.unique(img_arr, return_counts=True)
     counter = dict(zip(unique, counts))
 
     black_pixel_count = counter[0]
 
     return black_pixel_count
+
+
+@njit
+def calculate_bound_radius(segmented_img: np.array) -> float:
+
+    center = np.array((0.0, 0.0))  # Fake init radius
+
+    radius = 0.0001  # Fake init radius
+
+    for _ in range(2):
+        for pos, x in np.ndenumerate(segmented_img):
+
+            arr_pos = np.array(pos)
+
+            if x != 0:  # Only was pixels a part of the object
+                continue
+
+            # dist = distance(arr_pos, center) # Doesn't work because numba is stupid
+            diff = arr_pos - center
+            dist = np.sqrt(np.sum(diff ** 2))
+
+            if dist < radius:
+                continue
+
+            alpha = dist / radius
+            alphaSq = alpha ** 2
+
+            radius = 0.5 * (alpha + 1.0 / alpha) * radius
+
+            center = 0.5 * (
+                (1.0 + 1.0 / alphaSq) * center + (1.0 - 1.0 / alphaSq) * arr_pos
+            )
+
+    for idx, _ in np.ndenumerate(segmented_img):
+
+        arr_pos = np.array(idx)
+
+        # dist = distance(arr_pos, center) # Doesn't work because numba is stupid
+        diff = arr_pos - center
+        dist = np.sqrt(np.sum(diff ** 2))
+
+        if dist < radius:
+            break
+
+        radius = (radius + dist) / 2.0
+        center += (dist - radius) / dist * np.subtract(arr_pos, center)
+
+    return radius
 
 
 @njit
@@ -265,12 +314,11 @@ def normalize(dataset: np.array) -> np.array:
     return norm_dataset
 
 
-# @njit
 def distance(row1: np.array, row2: np.array) -> float:
     """
     calculate the Euclidean distance between two vectors
     """
-    return np.linalg.norm(row1 - row2)
+    return np.linalg.norm(np.subtract(row1, row2))
 
 
 # @njit
@@ -367,20 +415,21 @@ def extract_features(conf: dict, file: Path) -> dict:
         img = select_channel(img, conf["COLOR_CHANNEL"])
 
         hist = histogram(img)
+        opened = opening(img, conf, hist)
 
         # parse the label name and file number
         search_obj = re.search(r"(\D+)(\d+).*", file.stem, re.M | re.I)
         label = search_obj.group(1)
-        y = serialize_label(label)
+
+        try:
+            y = serialize_label(label)
+        except KeyError:
+            y = None
+
         number = search_obj.group(2)
 
-        # - histogram mean
-        # - Symmetry
-        # - width/height
-        # - Radius of smallest enclosing sphere
-
         # Area of cluster
-        x1 = area_of(img, conf, hist)
+        x1 = area(opened, conf, hist)
 
         # Entropy of pixels,
         x2 = entropy(img)
@@ -388,9 +437,11 @@ def extract_features(conf: dict, file: Path) -> dict:
         # histogram mean
         x3 = np.mean(hist)
 
-        x4 = 0
+        # Radius of smallest enclosing sphere
+        x4 = calculate_bound_radius(opened)
 
     except Exception as e:
+        raise
         return {
             "features": [],
             "msg": style(f"[ERROR] {file.stem} has an issue: {e}", fg="red"),
