@@ -45,6 +45,21 @@ NUM_OF_PROCESSES = 10
 #
 # A higher value, the bigger the objects will have to be to 
 # survived being eroded and dilated
+# WARNING: Any values above 1 are super slow!
+#
+# Must be greater than 1
 #
 #############################################################
 OPENING_WINDOW = 1
+
+###############################################################
+#
+# UPPER_BOUND_K:
+# 
+# The upper bound for the value of k for testing the knn
+# The range of tested values of k is 1 ..< UPPER_BOUND_K
+#
+# Must be greater than one
+#
+################################################################
+UPPER_BOUND_K = 5

@@ -130,7 +130,7 @@ def test(ctx):
         )
         return
 
-    for k in range(1, 6):
+    for k in range(1, int(conf["UPPER_BOUND_K"]) + 1):
         scores = evaluate(dataset, conf["N_FOLDS"], k)
         echo("\n")
         echo(style("[INFO] ", fg="green") + f"k={k}")
