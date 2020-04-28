@@ -130,12 +130,19 @@ def test(ctx):
         )
         return
 
+    total_avg = 0
     for k in range(1, int(conf["UPPER_BOUND_K"]) + 1):
         scores = evaluate(dataset, conf["N_FOLDS"], k)
+        average = sum(scores) / float(len(scores))
         echo("\n")
         echo(style("[INFO] ", fg="green") + f"k={k}")
         echo(f"\tScores: {['{:.3f}%'.format(score) for score in scores]}")
-        echo(f"\tMean Accuracy: {(sum(scores)/float(len(scores))):.3f}%")
+        echo(f"\tMean Accuracy: {average:.3f}%")
+
+        total_avg += average
+
+    total_avg /= int(conf["UPPER_BOUND_K"])
+    echo(style("\n[INFO] ", fg="green") + f"Total Average: {total_avg:.3f}%")
 
 
 @main.command()
