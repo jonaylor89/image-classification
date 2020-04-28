@@ -70,7 +70,7 @@ pipenv run python main.py predict /path/to/img
 [packages]
 pillow = "*"     # reading and writing images
 numpy = "*"      # fast array operations
-*click = "*"      # command line interface utility
+click = "*"      # command line interface utility
 numba = "*"      # just-in-time compiler for operations
 toml = "*"       # reading configuration file
 tqdm = "*"       # progress bar
