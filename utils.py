@@ -441,7 +441,6 @@ def extract_features(conf: dict, file: Path) -> dict:
         x4 = calculate_bound_radius(opened)
 
     except Exception as e:
-        raise
         return {
             "features": [],
             "msg": style(f"[ERROR] {file.stem} has an issue: {e}", fg="red"),
